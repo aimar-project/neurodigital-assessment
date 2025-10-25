@@ -218,8 +218,8 @@
 
         // Variables de estado
         let currentTrial = 0;
-        let totalTrials = config.cycles * config.blocksize * config.isiVals.length;
-		// let totalTrials = 20; // para hacer pruebas con solo 20 ensayos en lugar de 360
+        // let totalTrials = config.cycles * config.blocksize * config.isiVals.length;
+		let totalTrials = 20; // para hacer pruebas con solo 20 ensayos en lugar de 360
         let isiSequence = [];
         let blockStimuli = [];
         let testData = [];
@@ -665,116 +665,102 @@
             return Math.sqrt(variance);
         }
 
-        // Función para enviar los datos a SheetDB
-        async function sendDataToGoogleSheet(demographicsData, resultsData) {
-            const SHEETDB_URL = 'https://sheetdb.io/api/v1/g3vjre3apegrm';
-            let userIp = 'IP no disponible';
+		// Función para enviar el RESUMEN COMPLETO a Google Apps Script
+		async function sendDataToGoogleSheet(demographicsData, resultsData) {
+			const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5X5Fg0wkuQ8V1ita7mt6NNFHT-JE5s5M1PHTqgVmsGYmJVZfd0kSEssI-DV9zsjYq/exec';
 
-            try {
-                // 1. OBTENER LA DIRECCIÓN IP DEL USUARIO
-                // Hacemos una petición a ipify, un servicio gratuito para obtener la IP pública.
-                const ipResponse = await fetch('https://api.ipify.org?format=json');
-                const ipData = await ipResponse.json();
-                userIp = ipData.ip;
-                console.log('IP obtenida:', userIp);
+				// PREPARAR EL OBJETO ÚNICO CON TODAS LAS MÉTRICAS DEL RESUMEN
+				const allRTs = [...resultsData.stats[1000].rtCorr, ...resultsData.stats[2000].rtCorr, ...resultsData.stats[4000].rtCorr];
+				const pooledMeanRT = calculateMean(allRTs);
+				const pooledSdRT = calculateSD(allRTs);
 
-            } catch (error) {
-                console.error('No se pudo obtener la dirección IP:', error);
-                // Si falla, continuamos sin la IP, pero lo registramos.
-            }
+				const hitRate = resultsData.totalCorrectTargets / resultsData.totalTargets;
+				const faRate = resultsData.totalCommissionErrors / resultsData.totalFoils;
+				const pHit = Math.max(0.01, Math.min(0.99, hitRate));
+				const pFA = Math.max(0.01, Math.min(0.99, faRate));
+				const zHit = inverseNormalCDF(pHit);
+				const zFA = inverseNormalCDF(pFA);
+				const pooledDPrime = zHit - zFA;
+				const pooledBeta = Math.exp((zFA*zFA - zHit*zHit) / 2);
 
-            // 2. PREPARAR LOS DATOS PARA ENVIAR A SHEETDB
-            const allRTs = [...resultsData.stats[1000].rtCorr, ...resultsData.stats[2000].rtCorr, ...resultsData.stats[4000].rtCorr];
-            const pooledMeanRT = calculateMean(allRTs);
-            const pooledSdRT = calculateSD(allRTs);
+				const finalData = {
+					'Timestamp': new Date().toISOString(),
+					
+				// La IP la captura el script de Google
+				'ID': participantCode,
+				'Age': demographicsData.age,
+				'Gender': demographicsData.gender,
+				'Education': demographicsData.education,
+				
+				'Correct_Trials_1000': `${resultsData.stats[1000].correctTrials}/${resultsData.trialsPerCond}`,
+				'Correct_Trials_2000': `${resultsData.stats[2000].correctTrials}/${resultsData.trialsPerCond}`,
+				'Correct_Trials_4000': `${resultsData.stats[4000].correctTrials}/${resultsData.trialsPerCond}`,
+				'Correct_Trials_Pooled': `${resultsData.totalCorrectTrials}/${resultsData.totalTrials}`,
+				
+				'Correct_Targets_1000': `${resultsData.stats[1000].correctTargets}/${resultsData.stats[1000].targets}`,
+				'Correct_Targets_2000': `${resultsData.stats[2000].correctTargets}/${resultsData.stats[2000].targets}`,
+				'Correct_Targets_4000': `${resultsData.stats[4000].correctTargets}/${resultsData.stats[4000].targets}`,
+				'Correct_Targets_Pooled': `${resultsData.totalCorrectTargets}/${resultsData.totalTargets}`,
+				
+				'Correct_Foils_1000': `${resultsData.stats[1000].correctFoils}/${resultsData.stats[1000].foils}`,
+				'Correct_Foils_2000': `${resultsData.stats[2000].correctFoils}/${resultsData.stats[2000].foils}`,
+				'Correct_Foils_4000': `${resultsData.stats[4000].correctFoils}/${resultsData.stats[4000].foils}`,
+				'Correct_Foils_Pooled': `${resultsData.totalCorrectFoils}/${resultsData.totalFoils}`,
+				
+				'Target_Acc_Rate_1000': resultsData.stats[1000].targetAccRate.toFixed(3),
+				'Target_Acc_Rate_2000': resultsData.stats[2000].targetAccRate.toFixed(3),
+				'Target_Acc_Rate_4000': resultsData.stats[4000].targetAccRate.toFixed(3),
+				'Target_Acc_Rate_Pooled': (resultsData.totalCorrectTargets / resultsData.totalTargets).toFixed(3),
+				
+				'Foil_Acc_Rate_1000': resultsData.stats[1000].foilAccRate.toFixed(3),
+				'Foil_Acc_Rate_2000': resultsData.stats[2000].foilAccRate.toFixed(3),
+				'Foil_Acc_Rate_4000': resultsData.stats[4000].foilAccRate.toFixed(3),
+				'Foil_Acc_Rate_Pooled': (resultsData.totalCorrectFoils / resultsData.totalFoils).toFixed(3),
+				
+				'Commissions_1000': resultsData.stats[1000].commissionErrors,
+				'Commissions_2000': resultsData.stats[2000].commissionErrors,
+				'Commissions_4000': resultsData.stats[4000].commissionErrors,
+				'Commissions_Pooled': resultsData.totalCommissionErrors,
+				
+				'Omissions_1000': resultsData.stats[1000].omissionErrors,
+				'Omissions_2000': resultsData.stats[2000].omissionErrors,
+				'Omissions_4000': resultsData.stats[4000].omissionErrors,
+				'Omissions_Pooled': resultsData.totalOmissionErrors,
+				
+				'Mean_RT_1000': resultsData.stats[1000].meanRT.toFixed(2),
+				'Mean_RT_2000': resultsData.stats[2000].meanRT.toFixed(2),
+				'Mean_RT_4000': resultsData.stats[4000].meanRT.toFixed(2),
+				'Mean_RT_Pooled': pooledMeanRT.toFixed(2),
+				
+				'SD_RT_1000': resultsData.stats[1000].sdRT.toFixed(2),
+				'SD_RT_2000': resultsData.stats[2000].sdRT.toFixed(2),
+				'SD_RT_4000': resultsData.stats[4000].sdRT.toFixed(2),
+				'SD_RT_Pooled': pooledSdRT.toFixed(2),
+				
+				'd_prime_1000': resultsData.stats[1000].dPrime.toFixed(3),
+				'd_prime_2000': resultsData.stats[2000].dPrime.toFixed(3),
+				'd_prime_4000': resultsData.stats[4000].dPrime.toFixed(3),
+				'd_prime_Pooled': pooledDPrime.toFixed(3),
+				
+				'Beta_1000': resultsData.stats[1000].beta.toFixed(3),
+				'Beta_2000': resultsData.stats[2000].beta.toFixed(3),
+				'Beta_4000': resultsData.stats[4000].beta.toFixed(3),
+				'Beta_Pooled': pooledBeta.toFixed(3)
+			};
 
-            const hitRate = resultsData.totalCorrectTargets / resultsData.totalTargets;
-            const faRate = resultsData.totalCommissionErrors / resultsData.totalFoils;
-            const pHit = Math.max(0.01, Math.min(0.99, hitRate));
-            const pFA = Math.max(0.01, Math.min(0.99, faRate));
-            const zHit = inverseNormalCDF(pHit);
-            const zFA = inverseNormalCDF(pFA);
-            const pooledDPrime = zHit - zFA;
-            const pooledBeta = Math.exp((zFA*zFA - zHit*zHit) / 2);
-
-            const finalData = {
-                'Timestamp': new Date().toISOString(),
-                'IP_Address': userIp,
-                'ID': participantCode,
-                'Age': demographicsData.age,
-                'Gender': demographicsData.gender,
-                'Education': demographicsData.education,
-                
-                'Correct_Trials_1000': `${resultsData.stats[1000].correctTrials}/${resultsData.trialsPerCond}`,
-                'Correct_Trials_2000': `${resultsData.stats[2000].correctTrials}/${resultsData.trialsPerCond}`,
-                'Correct_Trials_4000': `${resultsData.stats[4000].correctTrials}/${resultsData.trialsPerCond}`,
-                'Correct_Trials_Pooled': `${resultsData.totalCorrectTrials}/${resultsData.totalTrials}`,
-                
-                'Correct_Targets_1000': `${resultsData.stats[1000].correctTargets}/${resultsData.stats[1000].targets}`,
-                'Correct_Targets_2000': `${resultsData.stats[2000].correctTargets}/${resultsData.stats[2000].targets}`,
-                'Correct_Targets_4000': `${resultsData.stats[4000].correctTargets}/${resultsData.stats[4000].targets}`,
-                'Correct_Targets_Pooled': `${resultsData.totalCorrectTargets}/${resultsData.totalTargets}`,
-                
-                'Correct_Foils_1000': `${resultsData.stats[1000].correctFoils}/${resultsData.stats[1000].foils}`,
-                'Correct_Foils_2000': `${resultsData.stats[2000].correctFoils}/${resultsData.stats[2000].foils}`,
-                'Correct_Foils_4000': `${resultsData.stats[4000].correctFoils}/${resultsData.stats[4000].foils}`,
-                'Correct_Foils_Pooled': `${resultsData.totalCorrectFoils}/${resultsData.totalFoils}`,
-                
-                'Target_Acc_Rate_1000': resultsData.stats[1000].targetAccRate.toFixed(3),
-                'Target_Acc_Rate_2000': resultsData.stats[2000].targetAccRate.toFixed(3),
-                'Target_Acc_Rate_4000': resultsData.stats[4000].targetAccRate.toFixed(3),
-                'Target_Acc_Rate_Pooled': (resultsData.totalCorrectTargets / resultsData.totalTargets).toFixed(3),
-                
-                'Foil_Acc_Rate_1000': resultsData.stats[1000].foilAccRate.toFixed(3),
-                'Foil_Acc_Rate_2000': resultsData.stats[2000].foilAccRate.toFixed(3),
-                'Foil_Acc_Rate_4000': resultsData.stats[4000].foilAccRate.toFixed(3),
-                'Foil_Acc_Rate_Pooled': (resultsData.totalCorrectFoils / resultsData.totalFoils).toFixed(3),
-                
-                'Commissions_1000': resultsData.stats[1000].commissionErrors,
-                'Commissions_2000': resultsData.stats[2000].commissionErrors,
-                'Commissions_4000': resultsData.stats[4000].commissionErrors,
-                'Commissions_Pooled': resultsData.totalCommissionErrors,
-                
-                'Omissions_1000': resultsData.stats[1000].omissionErrors,
-                'Omissions_2000': resultsData.stats[2000].omissionErrors,
-                'Omissions_4000': resultsData.stats[4000].omissionErrors,
-                'Omissions_Pooled': resultsData.totalOmissionErrors,
-                
-                'Mean_RT_1000': resultsData.stats[1000].meanRT.toFixed(2),
-                'Mean_RT_2000': resultsData.stats[2000].meanRT.toFixed(2),
-                'Mean_RT_4000': resultsData.stats[4000].meanRT.toFixed(2),
-                'Mean_RT_Pooled': pooledMeanRT.toFixed(2),
-                
-                'SD_RT_1000': resultsData.stats[1000].sdRT.toFixed(2),
-                'SD_RT_2000': resultsData.stats[2000].sdRT.toFixed(2),
-                'SD_RT_4000': resultsData.stats[4000].sdRT.toFixed(2),
-                'SD_RT_Pooled': pooledSdRT.toFixed(2),
-                
-                'd_prime_1000': resultsData.stats[1000].dPrime.toFixed(3),
-                'd_prime_2000': resultsData.stats[2000].dPrime.toFixed(3),
-                'd_prime_4000': resultsData.stats[4000].dPrime.toFixed(3),
-                'd_prime_Pooled': pooledDPrime.toFixed(3),
-                
-                'Beta_1000': resultsData.stats[1000].beta.toFixed(3),
-                'Beta_2000': resultsData.stats[2000].beta.toFixed(3),
-                'Beta_4000': resultsData.stats[4000].beta.toFixed(3),
-                'Beta_Pooled': pooledBeta.toFixed(3)
-            };
-
-            // 3. ENVIAR EL PAQUETE COMPLETO A SHEETDB
-            try {
-                const sheetDbResponse = await fetch(SHEETDB_URL, {
-                    method: 'POST',
-                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ data: [finalData] })
-                });
-                const sheetDbData = await sheetDbResponse.json();
-                console.log('Resumen completo enviado a SheetDB con éxito:', sheetDbData);
-            } catch (error) {
-                console.error('Error al enviar el resumen completo a SheetDB:', error);
-            }
-        }
-			
+			// ENVIAR EL PAQUETE ÚNICO A GOOGLE APPS SCRIPT
+			try {
+				const response = await fetch(GOOGLE_SCRIPT_URL, {
+					method: 'POST',
+					body: JSON.stringify(finalData)
+				});
+				const result = await response.json();
+				console.log('Resumen completo enviado a Google Apps Script con éxito:', result);
+			} catch (error) {
+				console.error('Error al enviar el resumen completo a Google Apps Script:', error);
+			}
+		}
+					
         /* Función para abrir en pantalla completa */
         function openFullscreen(elem) {
             if (elem.requestFullscreen) {
@@ -858,11 +844,3 @@
 </body>
 
 </html>
-
-
-
-
-
-
-
-
