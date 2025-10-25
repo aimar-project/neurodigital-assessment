@@ -748,18 +748,20 @@
 				'Beta_Pooled': pooledBeta.toFixed(3)
 			};
 
-			// ENVIAR EL PAQUETE ÚNICO A GOOGLE APPS SCRIPT
-			try {
-				const response = await fetch(GOOGLE_SCRIPT_URL, {
-					method: 'POST',
-					body: JSON.stringify(finalData)
-				});
-				const result = await response.json();
-				console.log('Resumen completo enviado a Google Apps Script con éxito:', result);
-			} catch (error) {
-				console.error('Error al enviar el resumen completo a Google Apps Script:', error);
-			}
-		}
+				// ENVIAR EL PAQUETE ÚNICO A GOOGLE APPS SCRIPT (MÉTODO ROBUSTO)
+				try {
+					const formData = new FormData();
+					formData.append('jsonData', JSON.stringify(finalData));
+
+					const response = await fetch(GOOGLE_SCRIPT_URL, {
+						method: 'POST',
+						body: formData,
+					});
+					const result = await response.json();
+					console.log('Resumen completo enviado a Google Apps Script con éxito:', result);
+				} catch (error) {
+					console.error('Error al enviar el resumen completo a Google Apps Script:', error);
+				}
 					
         /* Función para abrir en pantalla completa */
         function openFullscreen(elem) {
