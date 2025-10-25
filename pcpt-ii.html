@@ -451,20 +451,22 @@
 
         // Función para finalizar la prueba
         function endTest() {
-	    //Salir de pantalla completa
-	    closeFullscreen();
-
+            closeFullscreen(); // Salir de pantalla completa
             document.removeEventListener('keydown', handleKeyPress);
             ui.testScreen.style.display = 'none';
-			sendDataToGoogleSheet(demographics, testData);
             
-            // Calcular resultados
+            // 1. CALCULAR LOS RESULTADOS PRIMERO
             const results = calculateResults();
+
+            // 2. ENVIAR EL RESUMEN DETALLADO DE RESULTADOS
+            sendDataToGoogleSheet(demographics, results);
+            
+            // 3. Mostrar los resultados en pantalla
             displayResults(results);
             
             ui.endScreen.style.display = 'block';
         }
-
+		
         // Función para descargar los resultados en CSV
         function downloadResults() {
             // Crear encabezados CSV para datos detallados
@@ -664,8 +666,7 @@
         }
 
         // Función para enviar los datos a SheetDB
-        async function sendDataToGoogleSheet(demographicsData, trialData) {
-            // PEGA AQUÍ LA URL DE TU API DE SHEETDB
+        async function sendDataToGoogleSheet(demographicsData, resultsData) {
             const SHEETDB_URL = 'https://sheetdb.io/api/v1/g3vjre3apegrm';
             let userIp = 'IP no disponible';
 
@@ -683,42 +684,94 @@
             }
 
             // 2. PREPARAR LOS DATOS PARA ENVIAR A SHEETDB
-            const rowsToSend = trialData.map(trial => {
-                return {
-                    'Timestamp': new Date().toISOString(),
-                    'IP_Address': userIp,
-                    'ID': trial.sub,
-                    'Age': demographicsData.age,
-                    'Gender': demographicsData.gender,
-                    'Education': demographicsData.education,
-                    'Block': trial.block,
-                    'Trial': trial.trial,
-                    'ISI': trial.cond,
-                    'Stimulus': trial.targ,
-                    'Responded': trial.responded,
-                    'Correct': trial.corr,
-                    'Time': trial.time,
-                    'RT': trial.rt
-                };
-            });
+            const allRTs = [...resultsData.stats[1000].rtCorr, ...resultsData.stats[2000].rtCorr, ...resultsData.stats[4000].rtCorr];
+            const pooledMeanRT = calculateMean(allRTs);
+            const pooledSdRT = calculateSD(allRTs);
+
+            const hitRate = resultsData.totalCorrectTargets / resultsData.totalTargets;
+            const faRate = resultsData.totalCommissionErrors / resultsData.totalFoils;
+            const pHit = Math.max(0.01, Math.min(0.99, hitRate));
+            const pFA = Math.max(0.01, Math.min(0.99, faRate));
+            const zHit = inverseNormalCDF(pHit);
+            const zFA = inverseNormalCDF(pFA);
+            const pooledDPrime = zHit - zFA;
+            const pooledBeta = Math.exp((zFA*zFA - zHit*zHit) / 2);
+
+            const finalData = {
+                'Timestamp': new Date().toISOString(),
+                'IP_Address': userIp,
+                'ID': participantCode,
+                'Age': demographicsData.age,
+                'Gender': demographicsData.gender,
+                'Education': demographicsData.education,
+                
+                'Correct_Trials_1000': `${resultsData.stats[1000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_2000': `${resultsData.stats[2000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_4000': `${resultsData.stats[4000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_Pooled': `${resultsData.totalCorrectTrials}/${resultsData.totalTrials}`,
+                
+                'Correct_Targets_1000': `${resultsData.stats[1000].correctTargets}/${resultsData.stats[1000].targets}`,
+                'Correct_Targets_2000': `${resultsData.stats[2000].correctTargets}/${resultsData.stats[2000].targets}`,
+                'Correct_Targets_4000': `${resultsData.stats[4000].correctTargets}/${resultsData.stats[4000].targets}`,
+                'Correct_Targets_Pooled': `${resultsData.totalCorrectTargets}/${resultsData.totalTargets}`,
+                
+                'Correct_Foils_1000': `${resultsData.stats[1000].correctFoils}/${resultsData.stats[1000].foils}`,
+                'Correct_Foils_2000': `${resultsData.stats[2000].correctFoils}/${resultsData.stats[2000].foils}`,
+                'Correct_Foils_4000': `${resultsData.stats[4000].correctFoils}/${resultsData.stats[4000].foils}`,
+                'Correct_Foils_Pooled': `${resultsData.totalCorrectFoils}/${resultsData.totalFoils}`,
+                
+                'Target_Acc_Rate_1000': resultsData.stats[1000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_2000': resultsData.stats[2000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_4000': resultsData.stats[4000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_Pooled': (resultsData.totalCorrectTargets / resultsData.totalTargets).toFixed(3),
+                
+                'Foil_Acc_Rate_1000': resultsData.stats[1000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_2000': resultsData.stats[2000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_4000': resultsData.stats[4000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_Pooled': (resultsData.totalCorrectFoils / resultsData.totalFoils).toFixed(3),
+                
+                'Commissions_1000': resultsData.stats[1000].commissionErrors,
+                'Commissions_2000': resultsData.stats[2000].commissionErrors,
+                'Commissions_4000': resultsData.stats[4000].commissionErrors,
+                'Commissions_Pooled': resultsData.totalCommissionErrors,
+                
+                'Omissions_1000': resultsData.stats[1000].omissionErrors,
+                'Omissions_2000': resultsData.stats[2000].omissionErrors,
+                'Omissions_4000': resultsData.stats[4000].omissionErrors,
+                'Omissions_Pooled': resultsData.totalOmissionErrors,
+                
+                'Mean_RT_1000': resultsData.stats[1000].meanRT.toFixed(2),
+                'Mean_RT_2000': resultsData.stats[2000].meanRT.toFixed(2),
+                'Mean_RT_4000': resultsData.stats[4000].meanRT.toFixed(2),
+                'Mean_RT_Pooled': pooledMeanRT.toFixed(2),
+                
+                'SD_RT_1000': resultsData.stats[1000].sdRT.toFixed(2),
+                'SD_RT_2000': resultsData.stats[2000].sdRT.toFixed(2),
+                'SD_RT_4000': resultsData.stats[4000].sdRT.toFixed(2),
+                'SD_RT_Pooled': pooledSdRT.toFixed(2),
+                
+                'd_prime_1000': resultsData.stats[1000].dPrime.toFixed(3),
+                'd_prime_2000': resultsData.stats[2000].dPrime.toFixed(3),
+                'd_prime_4000': resultsData.stats[4000].dPrime.toFixed(3),
+                'd_prime_Pooled': pooledDPrime.toFixed(3),
+                
+                'Beta_1000': resultsData.stats[1000].beta.toFixed(3),
+                'Beta_2000': resultsData.stats[2000].beta.toFixed(3),
+                'Beta_4000': resultsData.stats[4000].beta.toFixed(3),
+                'Beta_Pooled': pooledBeta.toFixed(3)
+            };
 
             // 3. ENVIAR EL PAQUETE COMPLETO A SHEETDB
             try {
                 const sheetDbResponse = await fetch(SHEETDB_URL, {
                     method: 'POST',
-                    headers: {
-                        'Accept': 'application/json',
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        data: rowsToSend
-                    })
+                    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ data: [finalData] })
                 });
                 const sheetDbData = await sheetDbResponse.json();
-                console.log('Datos enviados a SheetDB con éxito:', sheetDbData);
-
+                console.log('Resumen completo enviado a SheetDB con éxito:', sheetDbData);
             } catch (error) {
-                console.error('Error al enviar datos a SheetDB:', error);
+                console.error('Error al enviar el resumen completo a SheetDB:', error);
             }
         }
 			
@@ -805,6 +858,7 @@
 </body>
 
 </html>
+
 
 
 
