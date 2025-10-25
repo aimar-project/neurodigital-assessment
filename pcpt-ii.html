@@ -663,27 +663,63 @@
             return Math.sqrt(variance);
         }
 
-        // Función para enviar los datos a Google Sheets
-        function sendDataToGoogleSheet(demographicsData, trialData) {
-            // URL DE LA WEB APP DE GOOGLE APPS SCRIPT
-            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxuwBjTtwB4ZQEV2SHBzPzRjknM4gQ9TXFqm_P84JgGL74Wmg5CJc8LF-SDKdmUFNQi/exec';
+        // Función para enviar los datos a SheetDB
+        async function sendDataToGoogleSheet(demographicsData, trialData) {
+            // PEGA AQUÍ LA URL DE TU API DE SHEETDB
+            const SHEETDB_URL = 'https://sheetdb.io/api/v1/g3vjre3apegrm';
+            let userIp = 'IP no disponible';
 
-            const dataToSend = {
-                demographics: demographicsData,
-                trials: trialData
-            };
+            try {
+                // 1. OBTENER LA DIRECCIÓN IP DEL USUARIO
+                // Hacemos una petición a ipify, un servicio gratuito para obtener la IP pública.
+                const ipResponse = await fetch('https://api.ipify.org?format=json');
+                const ipData = await ipResponse.json();
+                userIp = ipData.ip;
+                console.log('IP obtenida:', userIp);
 
-            fetch(GOOGLE_SCRIPT_URL, {
-                method: 'POST',
-                cache: 'no-cache',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(dataToSend)
-            })
-		    .then(res => res.json()) // Procesamos la respuesta para poder leerla
-            .then(data => console.log('Datos enviados a Google Sheets con éxito.'))
-            .catch(error => console.error('Error al enviar datos a Google Sheets:', error));
+            } catch (error) {
+                console.error('No se pudo obtener la dirección IP:', error);
+                // Si falla, continuamos sin la IP, pero lo registramos.
+            }
+
+            // 2. PREPARAR LOS DATOS PARA ENVIAR A SHEETDB
+            const rowsToSend = trialData.map(trial => {
+                return {
+                    'Timestamp': new Date().toISOString(),
+                    'IP_Address': userIp,
+                    'ID': trial.sub,
+                    'Age': demographicsData.age,
+                    'Gender': demographicsData.gender,
+                    'Education': demographicsData.education,
+                    'Block': trial.block,
+                    'Trial': trial.trial,
+                    'ISI': trial.cond,
+                    'Stimulus': trial.targ,
+                    'Responded': trial.responded,
+                    'Correct': trial.corr,
+                    'Time': trial.time,
+                    'RT': trial.rt
+                };
+            });
+
+            // 3. ENVIAR EL PAQUETE COMPLETO A SHEETDB
+            try {
+                const sheetDbResponse = await fetch(SHEETDB_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        data: rowsToSend
+                    })
+                });
+                const sheetDbData = await sheetDbResponse.json();
+                console.log('Datos enviados a SheetDB con éxito:', sheetDbData);
+
+            } catch (error) {
+                console.error('Error al enviar datos a SheetDB:', error);
+            }
         }
 			
         /* Función para abrir en pantalla completa */
@@ -769,6 +805,7 @@
 </body>
 
 </html>
+
 
 
 
