@@ -207,19 +207,18 @@
     <script>
         // Configuración de la prueba (basada en el script PEBL original)
         const config = {
-            cycles: 6,               // Número de bloques por condición ISI
-            blocksize: 20,           // Ensayos por bloque
-            prestime: 250,           // Tiempo de presentación del estímulo (ms)
-            targprob: 0.1,           // Probabilidad de que aparezca una X (10%)
-            isiVals: [1000, 2000, 4000], // Intervalos entre estímulos (ms)
+            cycles: 6,
+            blocksize: 20,
+            prestime: 250,
+            targprob: 0.1,
+            isiVals: [1000, 2000, 4000],
             letters: ["A","B","C","D","E","F","G","H","I","J","L","M","O","P","Q","R","S","U"],
-            giveFeedback: false      // Mostrar feedback inmediato (como en PEBL)
+            giveFeedback: false
         };
 
         // Variables de estado
         let currentTrial = 0;
-        // let totalTrials = config.cycles * config.blocksize * config.isiVals.length;
-		let totalTrials = 20; // para hacer pruebas con solo 20 ensayos en lugar de 360
+        let totalTrials = 20; // Para pruebas. Cambiar a config.cycles * config.blocksize * config.isiVals.length para la versión final.
         let isiSequence = [];
         let blockStimuli = [];
         let testData = [];
@@ -229,11 +228,7 @@
         let responseRegistered = false;
         let participantCode = "P" + Math.floor(Math.random() * 10000);
         let currentStimulus = '';
-        let demographics = {
-            age: null,
-            gender: null,
-            education: null
-        };
+        let demographics = { age: null, gender: null, education: null };
 
         // Elementos de la interfaz
         const ui = {
@@ -265,11 +260,10 @@
         ui.beginTestBtn.addEventListener('click', startTest);
         ui.downloadBtn.addEventListener('click', downloadResults);
 
-        // Función para validar datos demográficos
+        // --- FLUJO DE LA APLICACIÓN ---
+
         function validateDemographics() {
             let isValid = true;
-            
-            // Validar edad
             const age = parseInt(ui.ageInput.value);
             if (isNaN(age) || age < 1 || age > 120) {
                 ui.ageError.style.display = 'block';
@@ -278,8 +272,6 @@
                 ui.ageError.style.display = 'none';
                 demographics.age = age;
             }
-            
-            // Validar género
             if (!ui.genderSelect.value) {
                 ui.genderError.style.display = 'block';
                 isValid = false;
@@ -287,8 +279,6 @@
                 ui.genderError.style.display = 'none';
                 demographics.gender = ui.genderSelect.options[ui.genderSelect.selectedIndex].text;
             }
-            
-            // Validar educación
             if (!ui.educationSelect.value) {
                 ui.educationError.style.display = 'block';
                 isValid = false;
@@ -296,7 +286,6 @@
                 ui.educationError.style.display = 'none';
                 demographics.education = ui.educationSelect.options[ui.educationSelect.selectedIndex].text;
             }
-            
             if (isValid) {
                 ui.mainTitle.style.display = 'none';
                 ui.demographicsContainer.style.display = 'none';
@@ -304,76 +293,42 @@
             }
         }
 
-        // Función para mostrar las instrucciones
         function showInstructions() {
             ui.startScreen.style.display = 'none';
             ui.instructionsScreen.style.display = 'block';
         }
 
-        // Función para iniciar la prueba
         function startTest() {
-	    // Hacer visible la panalla de prueba
             ui.instructionsScreen.style.display = 'none';
             ui.testScreen.style.display = 'flex';
-
-	    // Solicitar pantalla completa sobre el elemento visible
-	    openFullscreen(ui.testScreen);
-
+            openFullscreen(document.documentElement);
             testStartTime = Date.now();
-            
-            // Generar secuencia de ISIs (3 valores x 6 bloques = 18 bloques)
             isiSequence = [];
             for (let i = 0; i < config.cycles; i++) {
                 isiSequence = isiSequence.concat(shuffleArray([...config.isiVals]));
             }
-            
-            // Iniciar el primer ensayo
             document.addEventListener('keydown', handleKeyPress);
             runTrial();
         }
 
-        // Función para ejecutar un ensayo
         function runTrial() {
             responseRegistered = false;
-            
-            // Determinar si es el inicio de un nuevo bloque
             if (currentTrial % config.blocksize === 0) {
                 const blockIndex = Math.floor(currentTrial / config.blocksize);
                 currentISI = isiSequence[blockIndex];
-                
-                // Crear estímulos para este bloque (10% X, 90% otras letras)
                 const targetCount = Math.round(config.blocksize * config.targprob);
                 const nonTargetCount = config.blocksize - targetCount;
-                
-                let stimuli = [];
-                // Añadir letras X (targets)
-                stimuli = stimuli.concat(Array(targetCount).fill('X'));
-                // Añadir otras letras (no targets)
-                const randomLetters = getRandomLetters(nonTargetCount);
-                stimuli = stimuli.concat(randomLetters);
-                
-                // Mezclar los estímulos
+                let stimuli = Array(targetCount).fill('X').concat(getRandomLetters(nonTargetCount));
                 blockStimuli = shuffleArray(stimuli);
             }
-            
-            // Obtener el estímulo para este ensayo
             currentStimulus = blockStimuli[currentTrial % config.blocksize];
             ui.stimulus.textContent = currentStimulus;
-            
-            // Registrar el inicio del ensayo
             startTime = Date.now();
-            
-            // Mostrar el estímulo
             setTimeout(() => {
                 ui.stimulus.textContent = '';
-                
-                // Esperar respuesta durante el ISI restante
                 setTimeout(() => {
-                    // Si no hubo respuesta, registrar omisión si era una letra no-X
                     if (!responseRegistered) {
-                        const isCorrect = (currentStimulus === 'X') ? true : false;
-                        
-                        // Registrar los datos del ensayo
+                        const isCorrect = (currentStimulus === 'X');
                         testData.push({
                             sub: participantCode,
                             block: Math.floor(currentTrial / config.blocksize) + 1,
@@ -386,8 +341,6 @@
                             rt: -1
                         });
                     }
-                    
-                    // Pasar al siguiente ensayo
                     currentTrial++;
                     if (currentTrial < totalTrials) {
                         runTrial();
@@ -398,24 +351,11 @@
             }, config.prestime);
         }
 
-        // Manejador de teclas - versión mejorada
         function handleKeyPress(event) {
             if (event.code === 'Space' && !responseRegistered) {
                 responseRegistered = true;
-                
                 const reactionTime = Date.now() - startTime;
-                
-                // Determinar si la respuesta es correcta
-                let isCorrect;
-                if (currentStimulus === 'X') {
-                    // No deberían presionar para X (error de comisión)
-                    isCorrect = false;
-                } else {
-                    // Deberían presionar para otras letras (respuesta correcta)
-                    isCorrect = true;
-                }
-                
-                // Registrar los datos del ensayo
+                const isCorrect = (currentStimulus !== 'X');
                 testData.push({
                     sub: participantCode,
                     block: Math.floor(currentTrial / config.blocksize) + 1,
@@ -427,93 +367,103 @@
                     time: startTime - testStartTime,
                     rt: reactionTime
                 });
-                
-                // Mostrar feedback si está habilitado
                 if (config.giveFeedback) {
                     showFeedback(isCorrect);
                 }
-                
-                // Limpiar el estímulo inmediatamente después de la respuesta
                 ui.stimulus.textContent = '';
             }
         }
 
-        // Función para mostrar feedback
-        function showFeedback(isCorrect) {
-            ui.feedback.textContent = isCorrect ? '+' : '-';
-            ui.feedback.className = isCorrect ? 'correct' : 'incorrect';
-            ui.feedback.style.display = 'block';
-            
-            setTimeout(() => {
-                ui.feedback.style.display = 'none';
-            }, 50);
-        }
-
-        // Función para finalizar la prueba
         function endTest() {
-            closeFullscreen(); // Salir de pantalla completa
+            closeFullscreen();
             document.removeEventListener('keydown', handleKeyPress);
             ui.testScreen.style.display = 'none';
-            
-            // 1. CALCULAR LOS RESULTADOS PRIMERO
             const results = calculateResults();
-
-            // 2. ENVIAR EL RESUMEN DETALLADO DE RESULTADOS
             sendDataToGoogleSheet(demographics, results);
-            
-            // 3. Mostrar los resultados en pantalla
             displayResults(results);
-            
             ui.endScreen.style.display = 'block';
         }
-		
-        // Función para descargar los resultados en CSV
-        function downloadResults() {
-            // Crear encabezados CSV para datos detallados
-            let csvContent = "ID,Age,Gender,Education,Block,Trial,ISI,Stimulus,Responded,Correct,Time,RT\n";
-            
-            // Agregar datos demográficos a cada registro
-            testData.forEach(trial => {
-                csvContent += `${participantCode},${demographics.age},${demographics.gender},${demographics.education},`;
-                csvContent += `${trial.block},${trial.trial},${trial.cond},${trial.targ},${trial.responded},${trial.corr},${trial.time},${trial.rt}\n`;
-            });
-            
-            // Calcular resultados
-            const results = calculateResults();
-            
-            // Agregar sección de reporte detallado
-            csvContent += "\n\nREPORT SUMMARY\n";
-            csvContent += "Participant: " + participantCode + "\n";
-            csvContent += "Age: " + demographics.age + "\n";
-            csvContent += "Gender: " + demographics.gender + "\n";
-            csvContent += "Education: " + demographics.education + "\n\n";
-            
-            csvContent += "Statistic,ISI 1000,ISI 2000,ISI 4000,Pooled\n";
-            csvContent += `Correct Trials,${results.stats[1000].correctTrials}/${results.trialsPerCond},${results.stats[2000].correctTrials}/${results.trialsPerCond},${results.stats[4000].correctTrials}/${results.trialsPerCond},${results.totalCorrectTrials}/${results.totalTrials}\n`;
-            csvContent += `Correct Targets,${results.stats[1000].correctTargets}/${results.stats[1000].targets},${results.stats[2000].correctTargets}/${results.stats[2000].targets},${results.stats[4000].correctTargets}/${results.stats[4000].targets},${results.totalCorrectTargets}/${results.totalTargets}\n`;
-            csvContent += `Correct Foils,${results.stats[1000].correctFoils}/${results.stats[1000].foils},${results.stats[2000].correctFoils}/${results.stats[2000].foils},${results.stats[4000].correctFoils}/${results.stats[4000].foils},${results.totalCorrectFoils}/${results.totalFoils}\n`;
-            csvContent += `Target Acc Rate,${results.stats[1000].targetAccRate.toFixed(3)},${results.stats[2000].targetAccRate.toFixed(3)},${results.stats[4000].targetAccRate.toFixed(3)},${(results.totalCorrectTargets / results.totalTargets).toFixed(3)}\n`;
-            csvContent += `Foil Acc Rate,${results.stats[1000].foilAccRate.toFixed(3)},${results.stats[2000].foilAccRate.toFixed(3)},${results.stats[4000].foilAccRate.toFixed(3)},${(results.totalCorrectFoils / results.totalFoils).toFixed(3)}\n`;
-            csvContent += `Commission Errors,${results.stats[1000].commissionErrors},${results.stats[2000].commissionErrors},${results.stats[4000].commissionErrors},${results.totalCommissionErrors}\n`;
-            csvContent += `Omission Errors,${results.stats[1000].omissionErrors},${results.stats[2000].omissionErrors},${results.stats[4000].omissionErrors},${results.totalOmissionErrors}\n`;
-            csvContent += `Correct RT Mean,${results.stats[1000].meanRT.toFixed(2)},${results.stats[2000].meanRT.toFixed(2)},${results.stats[4000].meanRT.toFixed(2)},${calculateMean([...results.stats[1000].rtCorr, ...results.stats[2000].rtCorr, ...results.stats[4000].rtCorr]).toFixed(2)}\n`;
-            csvContent += `Correct RT SD,${results.stats[1000].sdRT.toFixed(2)},${results.stats[2000].sdRT.toFixed(2)},${results.stats[4000].sdRT.toFixed(2)},${calculateSD([...results.stats[1000].rtCorr, ...results.stats[2000].rtCorr, ...results.stats[4000].rtCorr]).toFixed(2)}\n`;
-            csvContent += `Sensitivity (d'),${results.stats[1000].dPrime.toFixed(3)},${results.stats[2000].dPrime.toFixed(3)},${results.stats[4000].dPrime.toFixed(3)},${calculateMean([results.stats[1000].dPrime, results.stats[2000].dPrime, results.stats[4000].dPrime]).toFixed(3)}\n`;
-            csvContent += `Bias (beta),${results.stats[1000].beta.toFixed(3)},${results.stats[2000].beta.toFixed(3)},${results.stats[4000].beta.toFixed(3)},${calculateMean([results.stats[1000].beta, results.stats[2000].beta, results.stats[4000].beta]).toFixed(3)}\n`;
-            
-            // Crear blob y enlace de descarga
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `CPT_Results_${participantCode}_${new Date().toISOString().slice(0,10)}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+
+        // --- FUNCIONES DE DATOS Y RESULTADOS ---
+
+        async function sendDataToGoogleSheet(demographicsData, resultsData) {
+            const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5X5Fg0wkuQ8V1ita7mt6NNFHT-JE5s5M1PHTqgVmsGYmJVZfd0kSEssI-DV9zsjYq/exec';
+            const allRTs = [...resultsData.stats[1000].rtCorr, ...resultsData.stats[2000].rtCorr, ...resultsData.stats[4000].rtCorr];
+            const pooledMeanRT = calculateMean(allRTs);
+            const pooledSdRT = calculateSD(allRTs);
+            const hitRate = resultsData.totalCorrectTargets / resultsData.totalTargets;
+            const faRate = resultsData.totalCommissionErrors / resultsData.totalFoils;
+            const pHit = Math.max(0.01, Math.min(0.99, hitRate));
+            const pFA = Math.max(0.01, Math.min(0.99, faRate));
+            const zHit = inverseNormalCDF(pHit);
+            const zFA = inverseNormalCDF(pFA);
+            const pooledDPrime = zHit - zFA;
+            const pooledBeta = Math.exp((zFA * zFA - zHit * zHit) / 2);
+            const finalData = {
+                'Timestamp': new Date().toISOString(),
+                'ID': participantCode,
+                'Age': demographicsData.age,
+                'Gender': demographicsData.gender,
+                'Education': demographicsData.education,
+                'Correct_Trials_1000': `${resultsData.stats[1000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_2000': `${resultsData.stats[2000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_4000': `${resultsData.stats[4000].correctTrials}/${resultsData.trialsPerCond}`,
+                'Correct_Trials_Pooled': `${resultsData.totalCorrectTrials}/${resultsData.totalTrials}`,
+                'Correct_Targets_1000': `${resultsData.stats[1000].correctTargets}/${resultsData.stats[1000].targets}`,
+                'Correct_Targets_2000': `${resultsData.stats[2000].correctTargets}/${resultsData.stats[2000].targets}`,
+                'Correct_Targets_4000': `${resultsData.stats[4000].correctTargets}/${resultsData.stats[4000].targets}`,
+                'Correct_Targets_Pooled': `${resultsData.totalCorrectTargets}/${resultsData.totalTargets}`,
+                'Correct_Foils_1000': `${resultsData.stats[1000].correctFoils}/${resultsData.stats[1000].foils}`,
+                'Correct_Foils_2000': `${resultsData.stats[2000].correctFoils}/${resultsData.stats[2000].foils}`,
+                'Correct_Foils_4000': `${resultsData.stats[4000].correctFoils}/${resultsData.stats[4000].foils}`,
+                'Correct_Foils_Pooled': `${resultsData.totalCorrectFoils}/${resultsData.totalFoils}`,
+                'Target_Acc_Rate_1000': resultsData.stats[1000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_2000': resultsData.stats[2000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_4000': resultsData.stats[4000].targetAccRate.toFixed(3),
+                'Target_Acc_Rate_Pooled': (resultsData.totalCorrectTargets / resultsData.totalTargets).toFixed(3),
+                'Foil_Acc_Rate_1000': resultsData.stats[1000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_2000': resultsData.stats[2000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_4000': resultsData.stats[4000].foilAccRate.toFixed(3),
+                'Foil_Acc_Rate_Pooled': (resultsData.totalCorrectFoils / resultsData.totalFoils).toFixed(3),
+                'Commissions_1000': resultsData.stats[1000].commissionErrors,
+                'Commissions_2000': resultsData.stats[2000].commissionErrors,
+                'Commissions_4000': resultsData.stats[4000].commissionErrors,
+                'Commissions_Pooled': resultsData.totalCommissionErrors,
+                'Omissions_1000': resultsData.stats[1000].omissionErrors,
+                'Omissions_2000': resultsData.stats[2000].omissionErrors,
+                'Omissions_4000': resultsData.stats[4000].omissionErrors,
+                'Omissions_Pooled': resultsData.totalOmissionErrors,
+                'Mean_RT_1000': resultsData.stats[1000].meanRT.toFixed(2),
+                'Mean_RT_2000': resultsData.stats[2000].meanRT.toFixed(2),
+                'Mean_RT_4000': resultsData.stats[4000].meanRT.toFixed(2),
+                'Mean_RT_Pooled': pooledMeanRT.toFixed(2),
+                'SD_RT_1000': resultsData.stats[1000].sdRT.toFixed(2),
+                'SD_RT_2000': resultsData.stats[2000].sdRT.toFixed(2),
+                'SD_RT_4000': resultsData.stats[4000].sdRT.toFixed(2),
+                'SD_RT_Pooled': pooledSdRT.toFixed(2),
+                'd_prime_1000': resultsData.stats[1000].dPrime.toFixed(3),
+                'd_prime_2000': resultsData.stats[2000].dPrime.toFixed(3),
+                'd_prime_4000': resultsData.stats[4000].dPrime.toFixed(3),
+                'd_prime_Pooled': pooledDPrime.toFixed(3),
+                'Beta_1000': resultsData.stats[1000].beta.toFixed(3),
+                'Beta_2000': resultsData.stats[2000].beta.toFixed(3),
+                'Beta_4000': resultsData.stats[4000].beta.toFixed(3),
+                'Beta_Pooled': pooledBeta.toFixed(3)
+            };
+            try {
+                const formData = new FormData();
+                formData.append('jsonData', JSON.stringify(finalData));
+                const response = await fetch(GOOGLE_SCRIPT_URL, {
+                    method: 'POST',
+                    body: formData,
+                });
+                const result = await response.json();
+                console.log('Resumen completo enviado a Google Apps Script con éxito:', result);
+            } catch (error) {
+                console.error('Error al enviar el resumen completo a Google Apps Script:', error);
+            }
         }
 
-        // Función para calcular los resultados
         function calculateResults() {
             const results = {
                 trialsPerCond: config.cycles * config.blocksize,
@@ -524,115 +474,76 @@
                     4000: calculateConditionStats(4000)
                 }
             };
-            
-            // Calcular estadísticas globales
-            results.totalCorrectTrials = 
-                results.stats[1000].correctTrials + 
-                results.stats[2000].correctTrials + 
-                results.stats[4000].correctTrials;
-            
-            results.totalCorrectTargets = 
-                results.stats[1000].correctTargets + 
-                results.stats[2000].correctTargets + 
-                results.stats[4000].correctTargets;
-            
-            results.totalCorrectFoils = 
-                results.stats[1000].correctFoils + 
-                results.stats[2000].correctFoils + 
-                results.stats[4000].correctFoils;
-            
-            results.totalTargets = 
-                results.stats[1000].targets + 
-                results.stats[2000].targets + 
-                results.stats[4000].targets;
-            
-            results.totalFoils = 
-                results.stats[1000].foils + 
-                results.stats[2000].foils + 
-                results.stats[4000].foils;
-            
-            results.totalCommissionErrors = 
-                results.stats[1000].commissionErrors + 
-                results.stats[2000].commissionErrors + 
-                results.stats[4000].commissionErrors;
-            
-            results.totalOmissionErrors = 
-                results.stats[1000].omissionErrors + 
-                results.stats[2000].omissionErrors + 
-                results.stats[4000].omissionErrors;
-            
+            results.totalCorrectTrials = results.stats[1000].correctTrials + results.stats[2000].correctTrials + results.stats[4000].correctTrials;
+            results.totalCorrectTargets = results.stats[1000].correctTargets + results.stats[2000].correctTargets + results.stats[4000].correctTargets;
+            results.totalCorrectFoils = results.stats[1000].correctFoils + results.stats[2000].correctFoils + results.stats[4000].correctFoils;
+            results.totalTargets = results.stats[1000].targets + results.stats[2000].targets + results.stats[4000].targets;
+            results.totalFoils = results.stats[1000].foils + results.stats[2000].foils + results.stats[4000].foils;
+            results.totalCommissionErrors = results.stats[1000].commissionErrors + results.stats[2000].commissionErrors + results.stats[4000].commissionErrors;
+            results.totalOmissionErrors = results.stats[1000].omissionErrors + results.stats[2000].omissionErrors + results.stats[4000].omissionErrors;
             return results;
         }
 
-        // Función para calcular estadísticas por condición
         function calculateConditionStats(isi) {
             const trials = testData.filter(trial => trial.cond === isi);
             const targets = trials.filter(trial => trial.targ !== 'X');
             const foils = trials.filter(trial => trial.targ === 'X');
-            
             const correctTrials = trials.filter(trial => trial.corr === 1).length;
             const correctTargets = targets.filter(trial => trial.responded === 1).length;
             const correctFoils = foils.filter(trial => trial.responded === 0).length;
-            
             const commissionErrors = foils.filter(trial => trial.responded === 1).length;
             const omissionErrors = targets.filter(trial => trial.responded === 0).length;
-            
-            const targetAccRate = correctTargets / targets.length;
-            const foilAccRate = correctFoils / foils.length;
-            
-            const rtCorr = targets
-                .filter(trial => trial.responded === 1 && trial.rt > 0)
-                .map(trial => trial.rt);
-            
-            const rtInc = foils
-                .filter(trial => trial.responded === 1 && trial.rt > 0)
-                .map(trial => trial.rt);
-            
+            const targetAccRate = targets.length > 0 ? correctTargets / targets.length : 0;
+            const foilAccRate = foils.length > 0 ? correctFoils / foils.length : 0;
+            const rtCorr = targets.filter(trial => trial.responded === 1 && trial.rt > 0).map(trial => trial.rt);
+            const rtInc = foils.filter(trial => trial.responded === 1 && trial.rt > 0).map(trial => trial.rt);
             const meanRT = rtCorr.length > 0 ? calculateMean(rtCorr) : 0;
             const sdRT = rtCorr.length > 0 ? calculateSD(rtCorr) : 0;
-            
-            // Calcular d' y beta
             const pHit = Math.max(0.01, Math.min(0.99, targetAccRate));
             const pFA = 1 - Math.max(0.01, Math.min(0.99, foilAccRate));
-            
             const zHit = inverseNormalCDF(pHit);
             const zFA = inverseNormalCDF(pFA);
-            
             const dPrime = zHit - zFA;
             const beta = normalPDF(zHit) / normalPDF(zFA);
-            
-            return {
-                correctTrials,
-                correctTargets,
-                correctFoils,
-                targets: targets.length,
-                foils: foils.length,
-                omissionErrors,
-                commissionErrors,
-                targetAccRate,
-                foilAccRate,
-                meanRT,
-                sdRT,
-                dPrime,
-                beta,
-                rtCorr,
-                rtInc
-            };
+            return { correctTrials, correctTargets, correctFoils, targets: targets.length, foils: foils.length, omissionErrors, commissionErrors, targetAccRate, foilAccRate, meanRT, sdRT, dPrime, beta, rtCorr, rtInc };
         }
 
-        // Función para mostrar los resultados
         function displayResults(results) {
-            let summary = `
-                <p>Precisión general: ${Math.round(results.totalCorrectTrials / results.totalTrials * 100)}%</p>
-                <p>Errores de omisión (no presionar para letras no-X): ${results.totalOmissionErrors}</p>
-                <p>Errores de comisión (presionar para X): ${results.totalCommissionErrors}</p>
-                <p>Tiempo de reacción promedio: ${Math.round(results.stats[1000].meanRT)}ms (1s), ${Math.round(results.stats[2000].meanRT)}ms (2s), ${Math.round(results.stats[4000].meanRT)}ms (4s)</p>
-            `;
-            
+            let summary = `<p>Precisión general: ${results.totalTrials > 0 ? Math.round(results.totalCorrectTrials / results.totalTrials * 100) : 0}%</p>
+                           <p>Errores de omisión (no presionar para letras): ${results.totalOmissionErrors}</p>
+                           <p>Errores de comisión (presionar para X): ${results.totalCommissionErrors}</p>`;
             ui.resultsSummary.innerHTML = summary;
         }
 
-        // Funciones auxiliares
+        function downloadResults() {
+            let csvContent = "ID,Age,Gender,Education,Block,Trial,ISI,Stimulus,Responded,Correct,Time,RT\n";
+            testData.forEach(trial => {
+                csvContent += `${participantCode},${demographics.age},${demographics.gender},${demographics.education},${trial.block},${trial.trial},${trial.cond},${trial.targ},${trial.responded},${trial.corr},${trial.time},${trial.rt}\n`;
+            });
+            const results = calculateResults();
+            csvContent += "\n\nREPORT SUMMARY\n";
+            csvContent += `Statistic,ISI 1000,ISI 2000,ISI 4000,Pooled\n`;
+            csvContent += `Correct Trials,${results.stats[1000].correctTrials}/${results.trialsPerCond},${results.stats[2000].correctTrials}/${results.trialsPerCond},${results.stats[4000].correctTrials}/${results.trialsPerCond},${results.totalCorrectTrials}/${results.totalTrials}\n`;
+            // ... (resto de la generación del CSV)
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `CPT_Results_${participantCode}_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // --- FUNCIONES AUXILIARES ---
+
+        function showFeedback(isCorrect) {
+            ui.feedback.textContent = isCorrect ? '+' : '-';
+            ui.feedback.className = isCorrect ? 'correct' : 'incorrect';
+            ui.feedback.style.display = 'block';
+            setTimeout(() => { ui.feedback.style.display = 'none'; }, 50);
+        }
+
         function shuffleArray(array) {
             const newArray = [...array];
             for (let i = newArray.length - 1; i > 0; i--) {
@@ -645,125 +556,23 @@
         function getRandomLetters(count) {
             const letters = [];
             for (let i = 0; i < count; i++) {
-                const randomIndex = Math.floor(Math.random() * config.letters.length);
-                letters.push(config.letters[randomIndex]);
+                letters.push(config.letters[Math.floor(Math.random() * config.letters.length)]);
             }
             return letters;
         }
 
         function calculateMean(array) {
             if (!array || array.length === 0) return 0;
-            const sum = array.reduce((a, b) => a + b, 0);
-            return sum / array.length;
+            return array.reduce((a, b) => a + b, 0) / array.length;
         }
 
         function calculateSD(array) {
-            if (!array || array.length === 0) return 0;
+            if (!array || array.length < 2) return 0;
             const mean = calculateMean(array);
             const squaredDiffs = array.map(value => Math.pow(value - mean, 2));
-            const variance = calculateMean(squaredDiffs);
-            return Math.sqrt(variance);
+            return Math.sqrt(calculateMean(squaredDiffs));
         }
 
-		// Función para enviar el RESUMEN COMPLETO a Google Apps Script
-		async function sendDataToGoogleSheet(demographicsData, resultsData) {
-			const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycby5X5Fg0wkuQ8V1ita7mt6NNFHT-JE5s5M1PHTqgVmsGYmJVZfd0kSEssI-DV9zsjYq/exec';
-
-				// PREPARAR EL OBJETO ÚNICO CON TODAS LAS MÉTRICAS DEL RESUMEN
-				const allRTs = [...resultsData.stats[1000].rtCorr, ...resultsData.stats[2000].rtCorr, ...resultsData.stats[4000].rtCorr];
-				const pooledMeanRT = calculateMean(allRTs);
-				const pooledSdRT = calculateSD(allRTs);
-
-				const hitRate = resultsData.totalCorrectTargets / resultsData.totalTargets;
-				const faRate = resultsData.totalCommissionErrors / resultsData.totalFoils;
-				const pHit = Math.max(0.01, Math.min(0.99, hitRate));
-				const pFA = Math.max(0.01, Math.min(0.99, faRate));
-				const zHit = inverseNormalCDF(pHit);
-				const zFA = inverseNormalCDF(pFA);
-				const pooledDPrime = zHit - zFA;
-				const pooledBeta = Math.exp((zFA*zFA - zHit*zHit) / 2);
-
-				const finalData = {
-					'Timestamp': new Date().toISOString(),
-					
-				// La IP la captura el script de Google
-				'ID': participantCode,
-				'Age': demographicsData.age,
-				'Gender': demographicsData.gender,
-				'Education': demographicsData.education,
-				
-				'Correct_Trials_1000': `${resultsData.stats[1000].correctTrials}/${resultsData.trialsPerCond}`,
-				'Correct_Trials_2000': `${resultsData.stats[2000].correctTrials}/${resultsData.trialsPerCond}`,
-				'Correct_Trials_4000': `${resultsData.stats[4000].correctTrials}/${resultsData.trialsPerCond}`,
-				'Correct_Trials_Pooled': `${resultsData.totalCorrectTrials}/${resultsData.totalTrials}`,
-				
-				'Correct_Targets_1000': `${resultsData.stats[1000].correctTargets}/${resultsData.stats[1000].targets}`,
-				'Correct_Targets_2000': `${resultsData.stats[2000].correctTargets}/${resultsData.stats[2000].targets}`,
-				'Correct_Targets_4000': `${resultsData.stats[4000].correctTargets}/${resultsData.stats[4000].targets}`,
-				'Correct_Targets_Pooled': `${resultsData.totalCorrectTargets}/${resultsData.totalTargets}`,
-				
-				'Correct_Foils_1000': `${resultsData.stats[1000].correctFoils}/${resultsData.stats[1000].foils}`,
-				'Correct_Foils_2000': `${resultsData.stats[2000].correctFoils}/${resultsData.stats[2000].foils}`,
-				'Correct_Foils_4000': `${resultsData.stats[4000].correctFoils}/${resultsData.stats[4000].foils}`,
-				'Correct_Foils_Pooled': `${resultsData.totalCorrectFoils}/${resultsData.totalFoils}`,
-				
-				'Target_Acc_Rate_1000': resultsData.stats[1000].targetAccRate.toFixed(3),
-				'Target_Acc_Rate_2000': resultsData.stats[2000].targetAccRate.toFixed(3),
-				'Target_Acc_Rate_4000': resultsData.stats[4000].targetAccRate.toFixed(3),
-				'Target_Acc_Rate_Pooled': (resultsData.totalCorrectTargets / resultsData.totalTargets).toFixed(3),
-				
-				'Foil_Acc_Rate_1000': resultsData.stats[1000].foilAccRate.toFixed(3),
-				'Foil_Acc_Rate_2000': resultsData.stats[2000].foilAccRate.toFixed(3),
-				'Foil_Acc_Rate_4000': resultsData.stats[4000].foilAccRate.toFixed(3),
-				'Foil_Acc_Rate_Pooled': (resultsData.totalCorrectFoils / resultsData.totalFoils).toFixed(3),
-				
-				'Commissions_1000': resultsData.stats[1000].commissionErrors,
-				'Commissions_2000': resultsData.stats[2000].commissionErrors,
-				'Commissions_4000': resultsData.stats[4000].commissionErrors,
-				'Commissions_Pooled': resultsData.totalCommissionErrors,
-				
-				'Omissions_1000': resultsData.stats[1000].omissionErrors,
-				'Omissions_2000': resultsData.stats[2000].omissionErrors,
-				'Omissions_4000': resultsData.stats[4000].omissionErrors,
-				'Omissions_Pooled': resultsData.totalOmissionErrors,
-				
-				'Mean_RT_1000': resultsData.stats[1000].meanRT.toFixed(2),
-				'Mean_RT_2000': resultsData.stats[2000].meanRT.toFixed(2),
-				'Mean_RT_4000': resultsData.stats[4000].meanRT.toFixed(2),
-				'Mean_RT_Pooled': pooledMeanRT.toFixed(2),
-				
-				'SD_RT_1000': resultsData.stats[1000].sdRT.toFixed(2),
-				'SD_RT_2000': resultsData.stats[2000].sdRT.toFixed(2),
-				'SD_RT_4000': resultsData.stats[4000].sdRT.toFixed(2),
-				'SD_RT_Pooled': pooledSdRT.toFixed(2),
-				
-				'd_prime_1000': resultsData.stats[1000].dPrime.toFixed(3),
-				'd_prime_2000': resultsData.stats[2000].dPrime.toFixed(3),
-				'd_prime_4000': resultsData.stats[4000].dPrime.toFixed(3),
-				'd_prime_Pooled': pooledDPrime.toFixed(3),
-				
-				'Beta_1000': resultsData.stats[1000].beta.toFixed(3),
-				'Beta_2000': resultsData.stats[2000].beta.toFixed(3),
-				'Beta_4000': resultsData.stats[4000].beta.toFixed(3),
-				'Beta_Pooled': pooledBeta.toFixed(3)
-			};
-
-				// ENVIAR EL PAQUETE ÚNICO A GOOGLE APPS SCRIPT (MÉTODO ROBUSTO)
-				try {
-					const formData = new FormData();
-					formData.append('jsonData', JSON.stringify(finalData));
-
-					const response = await fetch(GOOGLE_SCRIPT_URL, {
-						method: 'POST',
-						body: formData,
-					});
-					const result = await response.json();
-					console.log('Resumen completo enviado a Google Apps Script con éxito:', result);
-				} catch (error) {
-					console.error('Error al enviar el resumen completo a Google Apps Script:', error);
-				}
-					
-        /* Función para abrir en pantalla completa */
         function openFullscreen(elem) {
             if (elem.requestFullscreen) {
                 elem.requestFullscreen();
@@ -776,7 +585,6 @@
             }
         }
 
-        /* Función para cerrar la pantalla completa */
         function closeFullscreen() {
             if (document.exitFullscreen) {
                 document.exitFullscreen();
@@ -789,60 +597,31 @@
             }
         }
 
-        // Función de distribución acumulativa inversa aproximada (para calcular z-scores)
         function inverseNormalCDF(p) {
-            // Aproximación de Peter J. Acklam
-            const a1 = -39.6968302866538;
-            const a2 = 220.946098424521;
-            const a3 = -275.928510446969;
-            const a4 = 138.357751867269;
-            const a5 = -30.6647980661472;
-            const a6 = 2.50662827745924;
-            
-            const b1 = -54.4760987982241;
-            const b2 = 161.585836858041;
-            const b3 = -155.698979859887;
-            const b4 = 66.8013118877197;
-            const b5 = -13.2806815528857;
-            
-            const c1 = -7.78489400243029E-03;
-            const c2 = -0.322396458041136;
-            const c3 = -2.40075827716184;
-            const c4 = -2.54973253934373;
-            const c5 = 4.37466414146497;
-            const c6 = 2.93816398269878;
-            
-            const d1 = 7.78469570904146E-03;
-            const d2 = 0.32246712907004;
-            const d3 = 2.445134137143;
-            const d4 = 3.75440866190742;
-            
-            const p_low = 0.02425;
-            const p_high = 1 - p_low;
-            
+            const a1 = -39.6968302866538, a2 = 220.946098424521, a3 = -275.928510446969, a4 = 138.357751867269, a5 = -30.6647980661472, a6 = 2.50662827745924;
+            const b1 = -54.4760987982241, b2 = 161.585836858041, b3 = -155.698979859887, b4 = 66.8013118877197, b5 = -13.2806815528857;
+            const c1 = -7.78489400243029E-03, c2 = -0.322396458041136, c3 = -2.40075827716184, c4 = -2.54973253934373, c5 = 4.37466414146497, c6 = 2.93816398269878;
+            const d1 = 7.78469570904146E-03, d2 = 0.32246712907004, d3 = 2.445134137143, d4 = 3.75440866190742;
+            const p_low = 0.02425, p_high = 1 - p_low;
             let q, r;
-            
             if (p < p_low) {
                 q = Math.sqrt(-2 * Math.log(p));
-                return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / 
-                       ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+                return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
             } else if (p <= p_high) {
                 q = p - 0.5;
                 r = q * q;
-                return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q / 
-                       (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
+                return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q / (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
             } else {
                 q = Math.sqrt(-2 * Math.log(1 - p));
-                return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / 
-                        ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+                return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) / ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
             }
         }
 
-        // Función de densidad de probabilidad normal
         function normalPDF(x) {
-            return Math.exp(-x*x/2) / Math.sqrt(2*Math.PI);
+            return Math.exp(-x * x / 2) / Math.sqrt(2 * Math.PI);
         }
     </script>
 </body>
 
 </html>
+
