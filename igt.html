@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Tarea de Iowa Gambling</title>
+    <style>
+        /* Estilos generales */
+        body {
+            font-family: 'Verdana', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f0f0f0;
+            color: #333;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+
+        /* Pantalla de inicio */
+        #start-screen {
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+        }
+
+        /* Pantalla de instrucciones */
+        #instructions-screen {
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+            display: none;
+        }
+
+        /* Pantalla de prueba */
+        #test-screen {
+            display: none;
+            width: 100%;
+            height: 100%;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+        }
+
+        /* Controles comunes */
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* Elementos de la prueba */
+        #top-bar {
+            width: 800px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        #score-display {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+
+        #graph-container {
+            width: 800px;
+            height: 60px;
+            border: 1px solid #ccc;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        #cash-bar, #loan-bar {
+            height: 20px;
+            position: absolute;
+            left: 10px;
+            transition: width 0.5s;
+        }
+
+        #cash-bar {
+            top: 10px;
+            background-color: #4CAF50;
+        }
+
+        #loan-bar {
+            top: 30px;
+            background-color: #f44336;
+        }
+
+        .bar-label {
+            position: absolute;
+            left: 10px;
+            font-size: 14px;
+        }
+
+        #cash-label { top: -5px; }
+        #loan-label { top: 25px; }
+
+        #decks-container {
+            display: flex;
+            gap: 40px;
+            position: absolute;
+            bottom: 50px;
+        }
+
+        .deck {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .deck-label {
+            font-size: 22px;
+            margin-bottom: 10px;
+        }
+
+        .deck-card {
+            width: 110px;
+            height: 165px;
+            background-color: #2196F3;
+            border: 3px solid #0d47a1;
+            border-radius: 8px;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s;
+        }
+
+        .deck-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feedback-overlay {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.2s;
+            border-radius: 5px;
+        }
+
+        .gain-feedback {
+            background-color: rgba(76, 175, 80, 0.9);
+        }
+
+        .loss-feedback {
+            background-color: rgba(244, 67, 54, 0.9);
+        }
+
+        #message-area {
+            position: absolute;
+            top: 40%;
+            font-size: 24px;
+            text-align: center;
+        }
+
+        /* Pantalla de finalización */
+        #end-screen {
+            display: none;
+            text-align: center;
+            max-width: 600px;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Pantalla 1: Inicio -->
+    <div id="start-screen">
+        <h1>Tarea de Iowa Gambling</h1>
+        <p>Esta prueba evalúa la toma de decisiones bajo condiciones de incertidumbre.</p>
+        <button id="start-btn">Comenzar</button>
+    </div>
+
+    <!-- Pantalla 2: Instrucciones -->
+    <div id="instructions-screen">
+        <h2>Instrucciones</h2>
+        <p>Se te ha prestado $2000. Tienes cuatro mazos de cartas (A, B, C y D).</p>
+        <p>Tu objetivo es ganar tanto dinero como sea posible.</p>
+        <p>En cada turno, eliges una carta de uno de los cuatro mazos haciendo clic en él.</p>
+        <p>Cada vez que eliges una carta, ganarás algo de dinero. Ocasionalmente, al elegir una carta, también perderás dinero.</p>
+        <p>No sabes cuándo ocurrirán las pérdidas, pero te avisamos: algunos mazos son mucho peores que otros.</p>
+        <button id="begin-test-btn">Iniciar Prueba</button>
+    </div>
+
+    <!-- Pantalla 3: Prueba -->
+    <div id="test-screen">
+        <div id="top-bar">
+            <div id="score-display">Saldo: $2000</div>
+            <div id="graph-container">
+                <div id="cash-bar"></div>
+                <div id="loan-bar"></div>
+                <div class="bar-label" id="cash-label">Dinero</div>
+                <div class="bar-label" id="loan-label">Préstamo</div>
+            </div>
+        </div>
+
+        <div id="message-area">
+            <div id="header-message">¡Elige una carta!</div>
+            <div id="feedback-message"></div>
+        </div>
+
+        <div id="decks-container">
+            <div class="deck">
+                <div class="deck-label">Mazo A</div>
+                <div class="deck-card" data-deck="1">
+                    <div class="feedback-overlay gain-feedback"></div>
+                    <div class="feedback-overlay loss-feedback"></div>
+                </div>
+            </div>
+            <div class="deck">
+                <div class="deck-label">Mazo B</div>
+                <div class="deck-card" data-deck="2">
+                    <div class="feedback-overlay gain-feedback"></div>
+                    <div class="feedback-overlay loss-feedback"></div>
+                </div>
+            </div>
+            <div class="deck">
+                <div class="deck-label">Mazo C</div>
+                <div class="deck-card" data-deck="3">
+                    <div class="feedback-overlay gain-feedback"></div>
+                    <div class="feedback-overlay loss-feedback"></div>
+                </div>
+            </div>
+            <div class="deck">
+                <div class="deck-label">Mazo D</div>
+                <div class="deck-card" data-deck="4">
+                    <div class="feedback-overlay gain-feedback"></div>
+                    <div class="feedback-overlay loss-feedback"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pantalla 4: Finalización -->
+    <div id="end-screen">
+        <h2>Prueba completada</h2>
+        <p id="final-result"></p>
+        <p>Gracias por participar.</p>
+    </div>
+
+    <script>
+        // Configuración del experimento
+        // const TOTAL_TRIALS = 100;
+        const TOTAL_TRIALS = 10;
+        const INITIAL_BALANCE = 2000;
+        const LOAN_AMOUNT = 2000;
+        const REWARD_DELAY = 1500;
+        const PENALTY_DELAY = 1500;
+        const SCALE_FACTOR = 14;
+
+        // Variables de estado
+        let currentBalance = INITIAL_BALANCE;
+        let loanTotal = INITIAL_BALANCE;
+        let trialCount = 1;
+        let testActive = false;
+		let trialData = []; // Para guardar los datos de cada ensayo
+		let participantId = ''; // Para el ID del participante
+        
+		// Estructura de los mazos
+        const decks = {
+            1: { 
+                reward: 100, 
+                penalties: [0,0,150,0,300,0,200,0,250,350,0,350,0,250,200,0,300,150,0,0,0,300,0,350,0,200,250,150,0,0,350,200,250,0,0,0,150,300,0,0],
+                label: "A"
+            },
+            2: { 
+                reward: 100, 
+                penalties: [-1,-1,0,-1,0,-1,0,0,1250,0,-1,-1,0,1250,0,-1,-1,0,0,0,1250,0,-1,-1,0,-1,0,-1,0,0,-1,1250,0,-1,0,-1,0,-1,0,0],
+                label: "B"
+            },
+            3: { 
+                reward: 50, 
+                penalties: [0,0,50,0,50,0,50,0,50,50,0,25,75,0,0,0,25,75,0,50,0,0,0,50,25,50,0,0,75,50,0,0,0,25,25,0,75,0,50,75],
+                label: "C"
+            },
+            4: { 
+                reward: 50, 
+                penalties: [-1,0,-1,0,0,-1,-1,0,0,250,-1,-1,0,0,-1,0,0,0,-1,250,0,-1,0,0,-1,-1,-1,0,250,0,0,-1,0,-1,250,-1,0,0,-1,0],
+                label: "D"
+            }
+        };
+
+        // Elementos de la interfaz
+        const ui = {
+            startScreen: document.getElementById('start-screen'),
+            instructionsScreen: document.getElementById('instructions-screen'),
+            testScreen: document.getElementById('test-screen'),
+            endScreen: document.getElementById('end-screen'),
+            startBtn: document.getElementById('start-btn'),
+            beginTestBtn: document.getElementById('begin-test-btn'),
+            scoreDisplay: document.getElementById('score-display'),
+            cashBar: document.getElementById('cash-bar'),
+            loanBar: document.getElementById('loan-bar'),
+            headerMessage: document.getElementById('header-message'),
+            feedbackMessage: document.getElementById('feedback-message'),
+            deckCards: document.querySelectorAll('.deck-card'),
+            finalResult: document.getElementById('final-result')
+        };
+
+        // Event listeners
+        ui.startBtn.addEventListener('click', showInstructions);
+        ui.beginTestBtn.addEventListener('click', startTest);
+
+        // Funciones de navegación
+        function showInstructions() {
+            ui.startScreen.style.display = 'none';
+            ui.instructionsScreen.style.display = 'block';
+        }
+
+        function startTest() {
+            // Generar ID de participante automáticamente
+            participantId = generateParticipantId();
+            console.log(`ID de participante generado: ${participantId}`); // Para depuración
+
+            // Activar pantalla completa
+            openFullscreen(document.documentElement);
+
+            ui.instructionsScreen.style.display = 'none';
+            ui.testScreen.style.display = 'flex';
+            
+            // Configurar eventos para las cartas
+            ui.deckCards.forEach(card => {
+                card.addEventListener('click', handleCardSelection);
+            });
+            
+            updateDisplay();
+            testActive = true;
+        }
+
+			function endTest() {
+			    // Salir de la pantalla completa
+				closeFullscreen();
+				
+				ui.testScreen.style.display = 'none';
+    
+				// 1. Calcular los resultados finales
+				const finalResults = calculateBlockResults();
+
+				// 2. Enviar los resultados a la nube
+				sendDataToGoogleSheet(finalResults);
+
+				// 3. Mostrar mensaje final
+				const netResult = finalResults.Net_Gain_Total;
+				let resultMessage = `Tu ganancia neta es de $${netResult}. `;
+				
+				if (netResult > 0) {
+					resultMessage += "¡Buen trabajo!";
+				} else {
+					resultMessage += "Intenta identificar qué mazos tenían más riesgo.";
+				}
+				
+				ui.finalResult.textContent = resultMessage;
+				ui.endScreen.style.display = 'block';
+			}
+
+        // Funciones de la prueba
+        async function handleCardSelection(event) {
+            if (!testActive) return;
+            
+            testActive = false;
+            const startTime = Date.now();
+            const selectedDeck = parseInt(event.currentTarget.dataset.deck);
+            const deck = decks[selectedDeck];
+            
+            // Obtener recompensa y penalización
+            const reward = deck.reward;
+            let penalty = deck.penalties.shift();
+            deck.penalties.push(penalty);
+            
+            let netGain = reward;
+            let feedbackType = "gain";
+            
+            if (penalty === -1) {
+                penalty = 0;
+                feedbackType = "loss";
+            }
+            
+            if (penalty > 0) {
+                netGain -= penalty;
+                feedbackType = "loss";
+            }
+            
+            // Mostrar feedback visual
+            const feedbackOverlay = event.currentTarget.querySelector(`.${feedbackType}-feedback`);
+            feedbackOverlay.textContent = feedbackType === "gain" ? `+${reward}` : `-${penalty}`;
+            feedbackOverlay.style.opacity = 1;
+            
+            ui.headerMessage.style.display = 'none';
+            ui.feedbackMessage.style.display = 'block';
+            
+            // Mostrar recompensa
+            ui.feedbackMessage.innerHTML = `<span style="color: #4CAF50;">Ganancia: +${reward}</span>`;
+            await delay(REWARD_DELAY);
+            
+            // Mostrar penalización si existe
+            if (penalty > 0) {
+                ui.feedbackMessage.innerHTML = `<span style="color: #f44336;">Pérdida: -${penalty}</span>`;
+                await delay(PENALTY_DELAY);
+            }
+            
+            // Actualizar balance
+            currentBalance += netGain;
+            
+            // Tomar préstamo si es necesario
+            while (currentBalance < 0) {
+                loanTotal += LOAN_AMOUNT;
+                currentBalance += LOAN_AMOUNT;
+            }
+            
+            // Registrar datos del ensayo
+            const reactionTime = Date.now() - startTime;
+            logTrial(selectedDeck, reward, penalty, netGain, reactionTime);
+            
+            // Actualizar interfaz
+            updateDisplay();
+            feedbackOverlay.style.opacity = 0;
+            
+            // Preparar siguiente ensayo o finalizar
+            if (trialCount < TOTAL_TRIALS) {
+                trialCount++;
+                ui.feedbackMessage.style.display = 'none';
+                ui.headerMessage.style.display = 'block';
+                testActive = true;
+            } else {
+                endTest();
+            }
+        }
+
+        function updateDisplay() {
+            ui.scoreDisplay.textContent = `Saldo: $${currentBalance}`;
+            
+            const cashWidth = Math.max(0, currentBalance) / SCALE_FACTOR;
+            const loanWidth = loanTotal / SCALE_FACTOR;
+            
+            ui.cashBar.style.width = `${cashWidth}px`;
+            ui.loanBar.style.width = `${loanWidth}px`;
+        }
+
+		function logTrial(deck, reward, penalty, net, rt) {
+		// console.log(`Ensayo ${trialCount}: Mazo ${decks[deck].label}, Ganancia: ${reward}, Pérdida: ${penalty}, Neto: ${net}, RT: ${rt}ms`);
+		trialData.push({
+        trial: trialCount,
+        deck: deck,
+        reward: reward,
+        penalty: penalty,
+        netGain: net,
+        rt: rt
+    });
+}
+
+        // Utilidades
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+		
+		// Función para generar un ID automático
+        function generateParticipantId() {
+            const timestamp = Date.now();
+            const randomPart = Math.random().toString(36).substring(2, 8);
+            return `${timestamp}-${randomPart}`;
+        }
+
+        // Función para abrir en pantalla completa
+        function openFullscreen(elem) {
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.mozRequestFullScreen) { /* Firefox */
+                elem.mozRequestFullScreen();
+            } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { /* IE/Edge */
+                elem.msRequestFullscreen();
+            }
+        }
+
+        // Función para cerrar la pantalla completa
+        function closeFullscreen() {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            } else if (document.mozCancelFullScreen) { /* Firefox */
+                document.mozCancelFullScreen();
+            } else if (document.webkitExitFullscreen) { /* Chrome, Safari and Opera */
+                document.webkitExitFullscreen();
+            } else if (document.msExitFullscreen) { /* IE/Edge */
+                document.msExitFullscreen();
+            }
+        }
+
+    // Funciones de cálculo estadístico
+    function calculateMean(arr) {
+        if (arr.length === 0) return 0;
+        const sum = arr.reduce((a, b) => a + b, 0);
+        return sum / arr.length;
+    }
+
+    function calculateSD(arr) {
+        if (arr.length < 2) return 0;
+        const mean = calculateMean(arr);
+        const sqDiffs = arr.map(value => Math.pow(value - mean, 2));
+        const avgSqDiff = calculateMean(sqDiffs);
+        return Math.sqrt(avgSqDiff);
+    }
+
+    // Función para calcular todos los resultados por bloques
+    function calculateBlockResults() {
+        const results = {};
+        const blockStarts = [1, 11, 21, 31, 41, 51, 61, 71, 81, 91];
+
+        // Calcular por cada bloque de 10
+        blockStarts.forEach(start => {
+            const end = start + 9;
+            const blockLabel = `${start}-${end}`;
+            const blockTrials = trialData.filter(t => t.trial >= start && t.trial <= end);
+
+            results[`Net_Gain_${blockLabel}`] = blockTrials.reduce((sum, t) => sum + t.netGain, 0);
+            
+            for (let i = 1; i <= 4; i++) {
+                const deckLabel = decks[i].label;
+                const deckTrials = blockTrials.filter(t => t.deck === i);
+                results[`Pct_${deckLabel}_${blockLabel}`] = (deckTrials.length / 10).toFixed(3);
+                
+                const rts = deckTrials.map(t => t.rt);
+                results[`Mean_RT_${deckLabel}_${blockLabel}`] = calculateMean(rts).toFixed(2);
+                results[`SD_RT_${deckLabel}_${blockLabel}`] = calculateSD(rts).toFixed(2);
+            }
+        });
+
+        // Calcular para el total
+        results['Net_Gain_Total'] = trialData.reduce((sum, t) => sum + t.netGain, 0);
+        for (let i = 1; i <= 4; i++) {
+            const deckLabel = decks[i].label;
+            const deckTrials = trialData.filter(t => t.deck === i);
+            results[`Pct_${deckLabel}_Total`] = (deckTrials.length / TOTAL_TRIALS).toFixed(3);
+
+            const rts = deckTrials.map(t => t.rt);
+            results[`Mean_RT_${deckLabel}_Total`] = calculateMean(rts).toFixed(2);
+            results[`SD_RT_${deckLabel}_Total`] = calculateSD(rts).toFixed(2);
+        }
+        return results;
+    }
+
+    // Función para enviar los datos
+    async function sendDataToGoogleSheet(finalResults) {
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyw0Qx78TyNE6mfb4fVefePgpLrz9w1ViQBWivk1uw8HrRh7wMd7VEEpTLo7LBFoubj/exec';
+        let userIp = 'IP no disponible';
+
+        try {
+            const ipResponse = await fetch('https://api.ipify.org?format=json');
+            const ipData = await ipResponse.json();
+            userIp = ipData.ip;
+        } catch (error) {
+            console.error('No se pudo obtener la dirección IP:', error);
+        }
+
+        const dataToSend = {
+            ...finalResults,
+            'Timestamp': new Date().toISOString(),
+            'IP_Address': userIp,
+            'ID': participantId
+        };
+
+        try {
+            await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(dataToSend)
+            });
+            console.log('Resultados enviados con éxito.');
+        } catch (error) {
+            console.error('Error al enviar los resultados:', error);
+        }
+    }
+    </script>
+</body>
+</html>
