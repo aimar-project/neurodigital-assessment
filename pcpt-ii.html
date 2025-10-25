@@ -205,6 +205,213 @@
     </div>
 
     <script>
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Continuous Performance Test (CPT-II)</title>
+    <style>
+        /* ESTILOS GENERALES */
+        body {
+            font-family: 'Verdana', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: black;
+            color: white;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* TÍTULO PRINCIPAL */
+        #main-title {
+            margin-bottom: 20px 0 30px 0;
+            font-size: 28px;
+            color: white;
+        }
+
+        /* PANTALLA DEMOGRÁFICA */
+        #demographics-container {
+            margin: 20px auto;
+            background-color: white;
+            color: black;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+
+        /* FORMULARIO DEMOGRÁFICO */
+        #demographics-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            text-align: left;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .form-group label {
+            font-weight: bold;
+            font-size: 16px;
+            color: #333;
+        }
+
+        .form-group input, 
+        .form-group select {
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: white;
+            color: #333;
+        }
+
+        .error-message {
+            color: #e74c3c;
+            font-size: 14px;
+            display: none;
+        }
+
+        /* BOTONES */
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        /* PANTALLAS */
+        #start-screen, #instructions-screen, #end-screen {
+            max-width: 800px;
+            padding: 20px;
+            display: none;
+        }
+
+        /* PANTALLA DE PRUEBA */
+        #test-screen {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        #stimulus {
+            font-size: 72px;
+            margin: 40px 0;
+            color: white;
+        }
+
+        #feedback {
+            font-size: 48px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+
+        .correct {
+            color: green;
+        }
+
+        .incorrect {
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <!-- Título principal (fuera del formulario) -->
+    <h1 id="main-title">Continuous Performance Test (CPT-II)</h1>
+
+    <!-- Contenedor de datos demográficos -->
+    <div id="demographics-container">
+        <form id="demographics-form">
+            <div class="form-group">
+                <label for="age">Edad:</label>
+                <input type="number" id="age" min="1" max="120" required>
+                <div id="age-error" class="error-message">Por favor ingresa una edad válida (1-120)</div>
+            </div>
+
+            <div class="form-group">
+                <label for="gender">Género:</label>
+                <select id="gender" required>
+                    <option value="">Selecciona tu género</option>
+                    <option value="1">Mujer</option>
+                    <option value="2">Varón</option>
+                    <option value="88">Otro</option>
+                    <option value="99">Prefiero no decirlo</option>
+                </select>
+                <div id="gender-error" class="error-message">Por favor selecciona una opción</div>
+            </div>
+
+            <div class="form-group">
+                <label for="education">Nivel educativo:</label>
+                <select id="education" required>
+                    <option value="">Selecciona tu nivel educativo</option>
+                    <option value="0">Sin estudios</option>
+                    <option value="1">Educación Primaria</option>
+                    <option value="2">Educación Secundaria</option>
+                    <option value="3">Educación Superior</option>
+                </select>
+                <div id="education-error" class="error-message">Por favor selecciona una opción</div>
+            </div>
+
+            <button type="button" id="submit-demographics">Continuar</button>
+        </form>
+    </div>
+
+    <!-- Pantalla de inicio -->
+    <div id="start-screen">
+        <h1>Continuous Performance Test (CPT-II)</h1>
+        <p>Esta prueba evalúa la atención sostenida y el control de impulsos.</p>
+        <button id="start-btn">Comenzar</button>
+    </div>
+
+    <!-- Pantalla de instrucciones -->
+    <div id="instructions-screen">
+        <h2>Instrucciones</h2>
+        <p>Se te presentarán letras una por una en la pantalla.</p>
+        <p>Presiona la BARRA ESPACIADORA cada vez que veas una letra, EXCEPTO cuando veas la letra "X".</p>
+        <p>Las letras aparecerán rápidamente, así que mantén tu atención en la pantalla.</p>
+        <p>La prueba durará aproximadamente 14 minutos.</p>
+        <button id="begin-test-btn">Entendido, comenzar prueba</button>
+    </div>
+
+    <!-- Pantalla de prueba -->
+    <div id="test-screen">
+        <div id="stimulus"></div>
+        <div id="feedback"></div>
+    </div>
+
+    <!-- Pantalla de finalización -->
+    <div id="end-screen">
+        <h2>Prueba completada</h2>
+        <p id="results-summary"></p>
+        <p>Gracias por participar.</p>
+        <button id="download-btn">Descargar resultados</button>
+    </div>
+
+    <script>
         // Configuración de la prueba (basada en el script PEBL original)
         const config = {
             cycles: 6,
@@ -622,6 +829,6 @@
         }
     </script>
 </body>
-
 </html>
+
 
